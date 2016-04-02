@@ -1,12 +1,23 @@
 package com.bitjini.my_twitter_app;
 
+/**
+ * Created by bitjini on 28/3/16.
+ */
+
 import android.animation.ObjectAnimator;
 import android.app.Activity;
+import android.app.Fragment;
+import android.app.ListActivity;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.graphics.Color;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.os.CountDownTimer;
+import android.os.Handler;
+import android.support.annotation.ColorInt;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -16,54 +27,64 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.BasicHttpParams;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-
-public class MyActivity extends AppCompatActivity {
+public class MyActivity extends Activity {
 
     Activity mActivity;
     ListView listView;
-    public LinearLayout mlayout;
+    public RelativeLayout mlayout;
+    //    Handler mHandler = new Handler();
     EditText textSearch;
     ProgressBar progressBar;
 
-    private TextView itemView;
-    private ImageView imageView;
-    Button searchBtn;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.twitter_tweets_list);
-         searchBtn = (Button) findViewById(R.id.searchBtn);
+        listView = (ListView) findViewById(R.id.list);
+        Button searchBtn = (Button) findViewById(R.id.searchBtn);
         textSearch = (EditText) findViewById(R.id.enterText);
         progressBar = (ProgressBar)findViewById(R.id.progressBar);
-        mlayout = (LinearLayout) findViewById(R.id.relativeLayout1);
+        mlayout = (RelativeLayout) findViewById(R.id.relativeLayout1);
 
-
-        itemView = (TextView) findViewById(R.id.listTextView);
-        imageView = (ImageView) findViewById(R.id.image);
-        itemView.setVisibility(View.GONE);
-        imageView.setVisibility(View.GONE);
         searchBtn.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(final View view) {
+            public void onClick(View view) {
 
                 // hide the keyboard
                 InputMethodManager inputManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
                 if (getCurrentFocus() != null) {
                     inputManager.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
                 }
+
 
 
                 AndroidNetworkUtility androidNetworkUtility = new AndroidNetworkUtility();
@@ -73,8 +94,6 @@ public class MyActivity extends AppCompatActivity {
                     mActivity.runOnUiThread(new Runnable() {
                         public void run() {
                             String query = textSearch.getText().toString();
-                            itemView.setVisibility(View.VISIBLE);
-                            imageView.setVisibility(View.VISIBLE);
                             new TwitterAsyncTask().execute(query, this);
                         }
                     });
@@ -86,7 +105,6 @@ public class MyActivity extends AppCompatActivity {
 
             }
         });
-
         // timer to update ui every 5 sec
         if (textSearch.getText().toString().length()!=0) {
             new Timer().scheduleAtFixedRate(new TimerTask() {
@@ -95,7 +113,7 @@ public class MyActivity extends AppCompatActivity {
 
                     Start();
                 }
-            }, 0, 5000);//put here time 1000 milliseconds=1 second
+            }, 0, 10000);//put here time 1000 milliseconds=1 second
         }
 
     }
@@ -122,6 +140,7 @@ public class MyActivity extends AppCompatActivity {
     public class TwitterAsyncTask extends AsyncTask<Object, Void, ArrayList<Search>> {
 
 
+
         final static String TWITTER_API_KEY = "H0vLNqlGfVXEQ7QeXML63lSMb";
         final static String TWITTER_API_SECRET = "t1pbXaepA3LsYUxM35061Mc5cMFefpUBXyU7QAwCvotxtF71yp";
 
@@ -141,196 +160,260 @@ public class MyActivity extends AppCompatActivity {
                     twitterTweets = twitterAPI.getTwitterTweets(params[0].toString());
                 } catch (IllegalStateException e) {
                     e.printStackTrace();
-                }  }
+                }
+            }
             return twitterTweets;
         }
 
         @Override
         protected void onPostExecute(ArrayList<Search> twitterTweets) {
 
-            for(int i=0;i<twitterTweets.size();i++)
-            {
-                Search item= twitterTweets.get(0);
-
-                if (item != null) {
-
-
-                    itemView.setText(String.format("%s :- %s :- %s", item.getText(), item.getName(), item.getDateCreated()));
-                    imageView.setTag(String.valueOf(item.getProfile_image_url()));
-                    new DownloadImagesTask().execute(imageView);
-
-                    ColorList c = new ColorList();
-
-
-                    String example = item.getText().toLowerCase();
-                    Log.e(" text ", "" + example);
-                    if (example.contains(c.Red)) {
-                        Log.e("example", "" + c.Red);
-                        mlayout.setBackgroundColor(Color.RED);
-                    }
-                    if (example.contains(c.Green)) {
-                        Log.e("example", "" + c.Green);
-                        mlayout.setBackgroundColor(Color.GREEN);
-                    }
-                    if (example.contains(c.Yellow)) {
-                        Log.e("example", "" + c.Yellow);
-                        mlayout.setBackgroundColor(Color.YELLOW);
-                    }
-
-                    if (example.contains(c.Blue)) {
-                        Log.e("example", "" + c.Blue);
-                        mlayout.setBackgroundColor(Color.BLUE);
-                    }
-                    if (example.contains(c.Lavender)) {
-                        Log.e("example", "" + c.Lavender);
-                        mlayout.setBackgroundColor(Color.parseColor("#F1A7FE"));
-                    }
-                    if (example.contains(c.QueenBlue)) {
-                        Log.e("example", "" + c.QueenBlue);
-                        mlayout.setBackgroundColor(Color.parseColor("#436B95"));
-                    }
-                    if (example.contains(c.Purple)) {
-                        Log.e("example", "" + c.Purple);
-                        mlayout.setBackgroundColor(Color.parseColor("#800080"));
-                    }
-                    if (example.contains(c.Peru)) {
-                        Log.e("example", "" + c.Peru);
-                        mlayout.setBackgroundColor(Color.parseColor("#CD853F"));
-                    }
-
-                    if (example.contains(c.WildStrawberry)) {
-                        Log.e("example", "" + c.WildStrawberry);
-                        mlayout.setBackgroundColor(Color.parseColor("#FF43A4"));
-                    }
-                    if (example.contains(c.Zaffre)) {
-                        Log.e("example", "" + c.Zaffre);
-                        mlayout.setBackgroundColor(Color.parseColor("#0014A8"));
-                    }
-                    if (example.contains(c.Zomp)) {
-                        Log.e("example", "" + c.Zomp);
-                        mlayout.setBackgroundColor(Color.parseColor("#39A78E"));
-                    }
-                    if (example.contains(c.Peach)) {
-                        Log.e("example", "" + c.Peach);
-                        mlayout.setBackgroundColor(Color.parseColor("#FFCBA4"));
-                    }
-                    if (example.contains(c.Pearl)) {
-                        Log.e("example", "" + c.Pearl);
-                        mlayout.setBackgroundColor(Color.parseColor("#EAE0C8"));
-                    }
-
-                    if (example.contains(c.Folly)) {
-                        Log.e("example", "" + c.Folly);
-                        mlayout.setBackgroundColor(Color.parseColor("#FF004F"));
-//                        viewHolder.layout.setBackgroundColor(Color.RED);
-                    }
-                    if (example.contains(c.FuzzyWuzzy)) {
-                        Log.e("example", "" + c.FuzzyWuzzy);
-                        mlayout.setBackgroundColor(Color.parseColor("#CC6666"));
-                    }
-                    if (example.contains(c.Olivine)) {
-                        Log.e("example", "" + c.Olivine);
-                        mlayout.setBackgroundColor(Color.parseColor("#9AB973"));
-                    }
-                    if (example.contains(c.Rose)) {
-                        Log.e("example", "" + c.Rose);
-                        mlayout.setBackgroundColor(Color.parseColor("#FF007F"));
-                    }
-                    if (example.contains(c.TealGreen)) {
-                        Log.e("example", "" + c.TealGreen);
-                        mlayout.setBackgroundColor(Color.parseColor("#00827F"));
-                    }
-                    if (example.contains(c.TwilightLavender)) {
-                        Log.e("example", "" + c.TwilightLavender);
-                        mlayout.setBackgroundColor(Color.parseColor("#8A496B"));
-                    }
-                    if (example.contains(c.Violet)) {
-                        Log.e("example", "" + c.Violet);
-                        mlayout.setBackgroundColor(Color.parseColor("#8F00FF"));
-                    }
-                    if (example.contains(c.BlackBean)) {
-                        Log.e("example", "" + c.BlackBean);
-                        mlayout.setBackgroundColor(Color.parseColor("#3D0C02"));
-                    }
-                    if (example.contains(c.Charcoal)) {
-                        Log.e("example", "" + c.Charcoal);
-                        mlayout.setBackgroundColor(Color.parseColor("#36454F"));
-                    }
-                    if (example.contains(c.BrightPink)) {
-                        Log.e("example", "" + c.BrightPink);
-                        mlayout.setBackgroundColor(Color.parseColor("#FF007F"));
-                    }
-                    if (example.contains(c.BubbleGum)) {
-                        Log.e("example", "" + c.BubbleGum);
-                        mlayout.setBackgroundColor(Color.parseColor("#FFC1CC"));
-                    }
-                    if (example.contains(c.Cherry)) {
-                        Log.e("example", "" + c.Cherry);
-                        mlayout.setBackgroundColor(Color.parseColor("#DE3163"));
-                    }
-                    if (example.contains(c.CGBlue)) {
-                        Log.e("example", "" + c.CGBlue);
-                        mlayout.setBackgroundColor(Color.parseColor("#007AA5"));
-                    }
-                    if (example.contains(c.Cream)) {
-                        Log.e("example", "" + c.Cream);
-                        mlayout.setBackgroundColor(Color.parseColor("#FFFDD0"));
-                    }
-                    if (example.contains(c.White)) {
-                        Log.e("example", "" + c.White);
-                        mlayout.setBackgroundColor(Color.WHITE);
-                    }
-                    if (example.contains(c.Gray)) {
-                        Log.e("example", "" + c.Gray);
-                        mlayout.setBackgroundColor(Color.GRAY);
-                    }
-                    if (example.contains(c.Black)) {
-                        Log.e("example", "" + c.Black);
-                        mlayout.setBackgroundColor(Color.BLACK);
-                    }
-                    if (example.contains(c.Aqua)) {
-                        Log.e("example", "" + c.Aqua);
-                        mlayout.setBackgroundColor(Color.parseColor("#00FFFF"));
-                    }
-                    if (example.contains(c.Azure)) {
-                        Log.e("example", "" + c.Azure);
-                        mlayout.setBackgroundColor(Color.parseColor("#007FFF"));
-                    }
-                    if (example.contains(c.BabyPink)) {
-                        Log.e("example", "" + c.BabyPink);
-                        mlayout.setBackgroundColor(Color.parseColor("#F4C2C2"));
-                    }
-                    if (example.contains(c.BarbiePink)) {
-                        Log.e("example", "" + c.BarbiePink);
-                        mlayout.setBackgroundColor(Color.parseColor("#E0218A"));
-                    }
-                    if (example.contains(c.BarnRed)) {
-                        Log.e("example", "" + c.BarnRed);
-                        mlayout.setBackgroundColor(Color.parseColor("#7C0A02"));
-                    }
-                    if (example.contains(c.Bisque)) {
-                        Log.e("example", "" + c.Bisque);
-                        mlayout.setBackgroundColor(Color.parseColor("#FFE4C4"));
-                    }
-
-                    if (example.contains(c.Orange)) {
-                        Log.e("example", "" + c.Orange);
-                        mlayout.setBackgroundColor(Color.parseColor("#FF5800"));
-                    }
-                    if (example.contains(c.Cyan)) {
-                        Log.e("example", "" + c.Cyan);
-                        mlayout.setBackgroundColor(Color.CYAN);
-                    }
-                }
-
-            }
-
+            MyClassAdapter adapter =
+                    new MyClassAdapter(MyActivity.this, R.layout.twitter_tweets_list, twitterTweets);
+            listView.setAdapter(adapter);
             progressBar.clearAnimation();
-            Start();
-
+//            twitterTweets.removeAll(twitterTweets);
 
         }
     }
 
+    public class MyClassAdapter extends ArrayAdapter<Search> {
+
+
+        private TextView itemView;
+        private ImageView imageView;
+        private RelativeLayout layout;
+
+
+        public MyClassAdapter(Context context, int textViewResourceId, ArrayList<Search> items) {
+            super(context, textViewResourceId, items);
+        }
+
+        public View getView(int position, View convertView, ViewGroup parent) {
+
+            if (convertView == null) {
+                convertView = LayoutInflater.from(this.getContext())
+                        .inflate(R.layout.activity_main, parent, false);
+
+
+                itemView = (TextView) convertView.findViewById(R.id.listTextView);
+                imageView = (ImageView) convertView.findViewById(R.id.image);
+                layout = (RelativeLayout) findViewById(R.id.relativeLayout2);
+
+
+            }
+
+            Search item = getItem(position);
+            if (item != null) {
+
+                itemView.setText(String.format("%s :- %s :- %s", item.getText(), item.getName(), item.getDateCreated()));
+                imageView.setTag(String.valueOf(item.getProfile_image_url()));
+                new DownloadImagesTask().execute(imageView);
+
+                ColorList c = new ColorList();
+
+
+                String example = getItem(0).getText().toLowerCase();
+                Log.e(" text ", "" + example);
+                if (example.contains(c.Red)) {
+                    Log.e("example", "" + c.Red);
+                    mlayout.setBackgroundColor(Color.RED);
+                    layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Green)) {
+                    Log.e("example", "" + c.Green);
+                    mlayout.setBackgroundColor(Color.GREEN);
+                    layout.setBackgroundColor(Color.GREEN);
+                }
+                if (example.contains(c.Yellow)) {
+                    Log.e("example", "" + c.Yellow);
+                    mlayout.setBackgroundColor(Color.YELLOW);
+                    layout.setBackgroundColor(Color.YELLOW);
+                }
+
+                if (example.contains(c.Blue)) {
+                    Log.e("example", "" + c.Blue);
+                    mlayout.setBackgroundColor(Color.BLUE);
+                    layout.setBackgroundColor(Color.BLUE);
+                }
+                if (example.contains(c.Lavender)) {
+                    Log.e("example", "" + c.Lavender);
+                    mlayout.setBackgroundColor(Color.parseColor("#F1A7FE"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.QueenBlue)) {
+                    Log.e("example", "" + c.QueenBlue);
+                    mlayout.setBackgroundColor(Color.parseColor("#436B95"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Purple)) {
+                    Log.e("example", "" + c.Purple);
+                    mlayout.setBackgroundColor(Color.parseColor("#800080"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Peru)) {
+                    Log.e("example", "" + c.Peru);
+                    mlayout.setBackgroundColor(Color.parseColor("#CD853F"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+
+                if (example.contains(c.WildStrawberry)) {
+                    Log.e("example", "" + c.WildStrawberry);
+                    mlayout.setBackgroundColor(Color.parseColor("#FF43A4"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Zaffre)) {
+                    Log.e("example", "" + c.Zaffre);
+                    mlayout.setBackgroundColor(Color.parseColor("#0014A8"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Zomp)) {
+                    Log.e("example", "" + c.Zomp);
+                    mlayout.setBackgroundColor(Color.parseColor("#39A78E"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Peach)) {
+                    Log.e("example", "" + c.Peach);
+                    mlayout.setBackgroundColor(Color.parseColor("#FFCBA4"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Pearl)) {
+                    Log.e("example", "" + c.Pearl);
+                    mlayout.setBackgroundColor(Color.parseColor("#EAE0C8"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+
+                if (example.contains(c.Folly)) {
+                    Log.e("example", "" + c.Folly);
+                    mlayout.setBackgroundColor(Color.parseColor("#FF004F"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.FuzzyWuzzy)) {
+                    Log.e("example", "" + c.FuzzyWuzzy);
+                    mlayout.setBackgroundColor(Color.parseColor("#CC6666"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Olivine)) {
+                    Log.e("example", "" + c.Olivine);
+                    mlayout.setBackgroundColor(Color.parseColor("#9AB973"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Rose)) {
+                    Log.e("example", "" + c.Rose);
+                    mlayout.setBackgroundColor(Color.parseColor("#FF007F"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.TealGreen)) {
+                    Log.e("example", "" + c.TealGreen);
+                    mlayout.setBackgroundColor(Color.parseColor("#00827F"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.TwilightLavender)) {
+                    Log.e("example", "" + c.TwilightLavender);
+                    mlayout.setBackgroundColor(Color.parseColor("#8A496B"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Violet)) {
+                    Log.e("example", "" + c.Violet);
+                    mlayout.setBackgroundColor(Color.parseColor("#8F00FF"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.BlackBean)) {
+                    Log.e("example", "" + c.BlackBean);
+                    mlayout.setBackgroundColor(Color.parseColor("#3D0C02"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Charcoal)) {
+                    Log.e("example", "" + c.Charcoal);
+                    mlayout.setBackgroundColor(Color.parseColor("#36454F"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.BrightPink)) {
+                    Log.e("example", "" + c.BrightPink);
+                    mlayout.setBackgroundColor(Color.parseColor("#FF007F"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.BubbleGum)) {
+                    Log.e("example", "" + c.BubbleGum);
+                    mlayout.setBackgroundColor(Color.parseColor("#FFC1CC"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Cherry)) {
+                    Log.e("example", "" + c.Cherry);
+                    mlayout.setBackgroundColor(Color.parseColor("#DE3163"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.CGBlue)) {
+                    Log.e("example", "" + c.CGBlue);
+                    mlayout.setBackgroundColor(Color.parseColor("#007AA5"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Cream)) {
+                    Log.e("example", "" + c.Cream);
+                    mlayout.setBackgroundColor(Color.parseColor("#FFFDD0"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.White)) {
+                    Log.e("example", "" + c.White);
+                    mlayout.setBackgroundColor(Color.WHITE);
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Gray)) {
+                    Log.e("example", "" + c.Gray);
+                    mlayout.setBackgroundColor(Color.GRAY);
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Black)) {
+                    Log.e("example", "" + c.Black);
+                    mlayout.setBackgroundColor(Color.BLACK);
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Aqua)) {
+                    Log.e("example", "" + c.Aqua);
+                    mlayout.setBackgroundColor(Color.parseColor("#00FFFF"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Azure)) {
+                    Log.e("example", "" + c.Azure);
+                    mlayout.setBackgroundColor(Color.parseColor("#007FFF"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.BabyPink)) {
+                    Log.e("example", "" + c.BabyPink);
+                    mlayout.setBackgroundColor(Color.parseColor("#F4C2C2"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.BarbiePink)) {
+                    Log.e("example", "" + c.BarbiePink);
+                    mlayout.setBackgroundColor(Color.parseColor("#E0218A"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.BarnRed)) {
+                    Log.e("example", "" + c.BarnRed);
+                    mlayout.setBackgroundColor(Color.parseColor("#7C0A02"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Bisque)) {
+                    Log.e("example", "" + c.Bisque);
+                    mlayout.setBackgroundColor(Color.parseColor("#FFE4C4"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+
+                if (example.contains(c.Orange)) {
+                    Log.e("example", "" + c.Orange);
+                    mlayout.setBackgroundColor(Color.parseColor("#FF5800"));
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+                if (example.contains(c.Cyan)) {
+                    Log.e("example", "" + c.Cyan);
+                    mlayout.setBackgroundColor(Color.CYAN);
+//                        viewHolder.layout.setBackgroundColor(Color.RED);
+                }
+            }
+
+
+            return convertView;
+        }
+    }
 }
 
